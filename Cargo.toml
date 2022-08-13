@@ -1,0 +1,19 @@
+[package]
+name = "tracing_storage_logger"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tracing = "0.1.36"
+serde_json = "1"
+tracing-subscriber = "0.3"
+readme = "0.1.0"
+tracing-attributes = "0.1.22"
+file-rotate = "0.7.0"
+chrono = "0.4"
+chrono-tz = { version = "0.4", features = ["serde"] }
+string-builder = "0.2.0" 
+
+
