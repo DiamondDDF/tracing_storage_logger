@@ -2,14 +2,13 @@ mod visitor;
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use chrono::DateTime;
-use chrono::{Local, Utc};
+use chrono::{Local};
 use chrono_tz::Tz;
 use tracing_subscriber::registry::{Scope, SpanRef};
 use tracing_subscriber::{Layer, registry::Extensions};
 use visitor::*;
 use file_rotate::{FileRotate, ContentLimit, suffix::AppendCount, compression::Compression};
-use std::{fs, io::Write};
+use std::{io::Write};
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
 use file_rotate::{suffix::{AppendTimestamp, FileLimit}};
@@ -22,7 +21,8 @@ use chrono_tz::US::Eastern;
 // Can I store it in the layer?
 // cutom layer needs to be passed as an empty struct, I want to be able to have a stack of spans.
 pub struct CustomLayer{
-    pub path: PathBuf
+    pub path: PathBuf,
+    pub limit: ContentLimit
 }
 //     pub file_logger: FileRotate<T>
 // }
@@ -111,32 +111,50 @@ where
 
         // Record the event. What will we do with this data later? I thought I was just about to record it?
         event.record(&mut visitor);
-       
-        let spans = ctx.event_scope(event).unwrap().collect::<Vec<SpanRef<'_, S>>>();
-        let current_span = spans.first().unwrap();
+        // If scope is none, I just don't want to print the scope in
+        // the head of the message
+        // If the scope is missing, 
+        // 1. Span Header can be an empty space, exclude \n or something.
+        // 2. zero indent
+        // 3. file_path cannot be gotten from current span, must panic.
+        let mut current_span: Option<&SpanRef<'_, S>> = None;
+        let mut spans =  Vec::<SpanRef<'_, S>>::new();
+        let mut indent = "".to_string();
+        let mut path_header = Builder::default();
+        if ctx.event_scope(event).is_some() {
+            spans = ctx.event_scope(event).unwrap().collect::<Vec<SpanRef<'_, S>>>();
+            current_span = Some(spans.first().unwrap());
+            indent = "  ".to_string().repeat(spans.len());
+            for name in spans.iter().rev() {
+                path_header.append(format!("{}() => ", name.name()));
+            }
+
+        };
+        
         // going to indent by span, perhaps that will be more readable.
-        let indent = "  ".repeat(spans.len());
         let mut file_path = self.path.clone();
         if let Some(file_name) = fields.get("path"){
             file_path.push(file_name.as_str().unwrap())
         }
         else {
-            file_path.push(current_span.name());
+            if(current_span.is_none()) {
+                panic!("Tried to log something. Not within a span, and did not specifiy a 'path'");
+            }
+            file_path.push(current_span.unwrap().name());
         }
         let mut message = Builder::default();
         let now = Local::now().with_timezone(&Eastern);
         message.append(format!("{}{}\n",indent, now.format("%Y-%m-%d %H:%M:%S")));
+        message.append(path_header.string().unwrap());
         message.append(format!("{}", indent));
-        for name in spans.iter().rev() {
-            message.append(format!("{} -> ", name.name()));
-        }
+        
         message.append("\n");
-        message.append(format!("{}{}: \n", indent, current_span.metadata().level()));
+        message.append(format!("{}{}: \n", indent, current_span.unwrap().metadata().level()));
         for (name, value) in &fields {
             message.append(format!("{}  {}: {}\n", indent, name, value));
         }
         message.append("\n");
-        //println!("{}", &message.string().unwrap());
+        
         let output = serde_json::json!({
             "target": event.metadata().target(),
             "name": event.metadata().name(),
@@ -146,7 +164,7 @@ where
         let mut log = FileRotate::new(
             file_path,
             AppendTimestamp::default(FileLimit::MaxFiles(2)),
-            ContentLimit::Lines(20),
+            self.limit.clone(),
             Compression::None,
             #[cfg(unix)]
             None,
@@ -156,5 +174,10 @@ where
     }
   
     
+}
+impl CustomLayer {
+    pub fn get_span_path(){
+
+    }
 }
 

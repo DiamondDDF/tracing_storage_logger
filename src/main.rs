@@ -7,15 +7,18 @@ mod logger;
 use logger::Logger;
 mod custom_layer;
 use custom_layer::CustomLayer;
+use file_rotate::ContentLimit;
+
 
 fn main() {
-   let logger = Logger::new(PathBuf::from(r"logs"));//tracing_subscriber::registry().with(CustomLayer).init();
+   let logger = Logger::new(PathBuf::from(r"logs"), ContentLimit::Bytes(1024));//tracing_subscriber::registry().with(CustomLayer).init();
     function_a();
 }
 #[instrument(level = "trace", target = "collection_loop")]
 fn function_a(){
     info!(message = "Inside function a", path = "Transactions", level = "error");
     function_b();
+
     warn!("Exiting function a");
 }
 

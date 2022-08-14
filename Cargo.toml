@@ -16,4 +16,8 @@ chrono = "0.4"
 chrono-tz = { version = "0.4", features = ["serde"] }
 string-builder = "0.2.0" 
 
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
 
