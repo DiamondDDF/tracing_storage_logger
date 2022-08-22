@@ -24,13 +24,13 @@ fn function_a(){
 #[instrument(level = "debug")]
 fn function_b(){
     info!("Inside function b");
-    function_c();
+    function_c("Some message".into());
     warn!("Exiting function b");
 
 }
 
 #[instrument]
-fn function_c(){
+fn function_c(some_argument: &str){
     info!("Inside function c");
     error!("Exiting function c");
 }

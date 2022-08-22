@@ -1,28 +1,28 @@
 mod visitor;
+use chrono::Local;
+use chrono_tz::Tz;
+use chrono_tz::US::Eastern;
+use file_rotate::suffix::{AppendTimestamp, FileLimit};
+use file_rotate::{compression::Compression, suffix::AppendCount, ContentLimit, FileRotate};
 use std::cell::Cell;
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::PathBuf;
-use chrono::{Local};
-use chrono_tz::Tz;
-use tracing_subscriber::registry::{Scope, SpanRef};
-use tracing_subscriber::{Layer, registry::Extensions};
-use visitor::*;
-use file_rotate::{FileRotate, ContentLimit, suffix::AppendCount, compression::Compression};
-use std::{io::Write};
+use string_builder::Builder;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
-use file_rotate::{suffix::{AppendTimestamp, FileLimit}};
-use string_builder::Builder;
-use chrono_tz::US::Eastern;
+use tracing_subscriber::registry::{Scope, SpanRef};
+use tracing_subscriber::{registry::Extensions, Layer};
+use visitor::*;
 
 // need a way to set the root path. A const doesn't work because I want to reuse this crate.
 // I could store the path in the logger, but how do I retrieve it?
 // If I pass it in every time, that's going to be a pain
 // Can I store it in the layer?
 // cutom layer needs to be passed as an empty struct, I want to be able to have a stack of spans.
-pub struct CustomLayer{
+pub struct CustomLayer {
     pub path: PathBuf,
-    pub limit: ContentLimit
+    pub limit: ContentLimit,
 }
 //     pub file_logger: FileRotate<T>
 // }
@@ -44,8 +44,8 @@ where
     S: Subscriber,
     S: for<'lookup> LookupSpan<'lookup>,
 {
-    // In this function, when a span gets created, 
-    // 1. I get the span by id from the context, 
+    // In this function, when a span gets created,
+    // 1. I get the span by id from the context,
     // 2. I create a new serializer/recorder called a Visitor and give it a reference to my "fields" dictionary.
     // 3. I pass my Vistor(recorder) to attributes.record which calls the necessary functions on Visitor to serialize and store things.
     // 4. I then package it in a "CustomFieldStorage" which is just a tuple struct.
@@ -71,7 +71,7 @@ where
         // So I have my visitor with a hashmap to store things, now I have
         // attributes send all its data to the thing I made.
         //attrs.record(&mut visitor);
-        // CustomFieldStorage is another tuple stuct that stores a dictionary at .0 
+        // CustomFieldStorage is another tuple stuct that stores a dictionary at .0
         let storage = CustomFieldStorage(fields);
         // extensions belongs to the span and is extra storage.
         let mut extensions = span.extensions_mut();
@@ -103,8 +103,8 @@ where
         // Event scope should include all outer spans if I'm not mistaken. Notice it's in a variable
         // called Context. This is a general term in computer science. Your name and id at the bank is a
         // context for making a transaction.
-       
-        // create a new dictionary, pass it to the visitor which know how to put things in the dictionary, 
+
+        // create a new dictionary, pass it to the visitor which know how to put things in the dictionary,
         // pass that to the event.record, which calls methods on the visitor. They should call it a recorder!
         let mut fields = BTreeMap::new();
         let mut visitor = JsonVisitor(&mut fields);
@@ -113,48 +113,56 @@ where
         event.record(&mut visitor);
         // If scope is none, I just don't want to print the scope in
         // the head of the message
-        // If the scope is missing, 
+        // If the scope is missing,
         // 1. Span Header can be an empty space, exclude \n or something.
         // 2. zero indent
         // 3. file_path cannot be gotten from current span, must panic.
         let mut current_span: Option<&SpanRef<'_, S>> = None;
-        let mut spans =  Vec::<SpanRef<'_, S>>::new();
-        let mut indent = "".to_string();
+        let mut spans = Vec::<SpanRef<'_, S>>::new();
+        let indent = "  ".to_string();
         let mut path_header = Builder::default();
         if ctx.event_scope(event).is_some() {
-            spans = ctx.event_scope(event).unwrap().collect::<Vec<SpanRef<'_, S>>>();
+            spans = ctx
+                .event_scope(event)
+                .unwrap()
+                .collect::<Vec<SpanRef<'_, S>>>();
             current_span = Some(spans.first().unwrap());
-            indent = "  ".to_string().repeat(spans.len());
             for name in spans.iter().rev() {
                 path_header.append(format!("{}() => ", name.name()));
             }
-
         };
-        
+
         // going to indent by span, perhaps that will be more readable.
         let mut file_path = self.path.clone();
-        if let Some(file_name) = fields.get("path"){
+        if let Some(file_name) = fields.get("path") {
             file_path.push(file_name.as_str().unwrap())
-        }
-        else {
-            if(current_span.is_none()) {
+        } else {
+            if (current_span.is_none()) {
                 panic!("Tried to log something. Not within a span, and did not specifiy a 'path'");
             }
             file_path.push(current_span.unwrap().name());
         }
         let mut message = Builder::default();
         let now = Local::now().with_timezone(&Eastern);
-        message.append(format!("{}{}\n",indent, now.format("%Y-%m-%d %H:%M:%S")));
+        message.append(format!("{}\n", now.format("%Y-%m-%d %H:%M:%S")));
         message.append(path_header.string().unwrap());
         message.append(format!("{}", indent));
-        
+
         message.append("\n");
-        message.append(format!("{}{}: \n", indent, current_span.unwrap().metadata().level()));
+        if (current_span.is_some()) {
+            message.append(format!(
+                "{}{}: \n",
+                indent,
+                current_span.unwrap().metadata().level()
+            ));
+        } else {
+            message.append(format!("{}{}: \n", indent, "INFO:".to_string()));
+        }
         for (name, value) in &fields {
             message.append(format!("{}  {}: {}\n", indent, name, value));
         }
         message.append("\n");
-        
+
         let output = serde_json::json!({
             "target": event.metadata().target(),
             "name": event.metadata().name(),
@@ -172,12 +180,7 @@ where
         let _ = write!(log, "{}", message.string().unwrap());
         //println!("{}{}", serde_json::to_string_pretty(&output).unwrap());
     }
-  
-    
 }
 impl CustomLayer {
-    pub fn get_span_path(){
-
-    }
+    pub fn get_span_path() {}
 }
-
