@@ -13,8 +13,9 @@ use tracing_storage_logger::prelude::*;
 
 fn main() {
   
-      let logger = Logger::new(PathBuf::from(r"logs" ContentLimit::Bytes(1024));
-    function_a();
+    let logger = Logger::new(
+        PathBuf::from(r"logs" ContentLimit::Bytes(1024));
+        function_a();
 }
 
 #[instrument(level = "trace")]

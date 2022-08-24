@@ -3,16 +3,21 @@ use std::{path::PathBuf};
 use tracing::{instrument, info, warn, error};
 
 mod logger;
-use logger::Logger;
 mod custom_layer;
-use custom_layer::CustomLayer;
-use file_rotate::ContentLimit;
-
+//use file_rotate::ContentLimit;
+use tracing_storage_logger::prelude::*;
 
 fn main() {
-   let logger = Logger::new(PathBuf::from(r"logs"), ContentLimit::Bytes(1024));//tracing_subscriber::registry().with(CustomLayer).init();
+    let logger = Logger::new(
+        PathBuf::from(r"logs"), 
+        ContentLimit::Bytes(1024),
+        US::Eastern
+    );
+    info!(message = "🍺🍺🍺 Cheers!", path = "general");
+    info!(message = "🌈🌈🌈 Peace and beauty", path = "general");//tracing_subscriber::registry().with(CustomLayer).init();
     function_a();
 }
+
 #[instrument(level = "trace")]
 fn function_a(){
     info!(message = "Inside function a", path = "Transactions", level = "error");

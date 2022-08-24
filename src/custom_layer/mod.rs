@@ -23,6 +23,7 @@ use visitor::*;
 pub struct CustomLayer {
     pub path: PathBuf,
     pub limit: ContentLimit,
+    pub time_zone: Tz
 }
 //     pub file_logger: FileRotate<T>
 // }
@@ -111,16 +112,18 @@ where
 
         // Record the event. What will we do with this data later? I thought I was just about to record it?
         event.record(&mut visitor);
-        // If scope is none, I just don't want to print the scope in
-        // the head of the message
-        // If the scope is missing,
-        // 1. Span Header can be an empty space, exclude \n or something.
-        // 2. zero indent
-        // 3. file_path cannot be gotten from current span, must panic.
+
+        // 🍁 Some preliminary definitions of things I'm going to add to the message:
         let mut current_span: Option<&SpanRef<'_, S>> = None;
         let mut spans = Vec::<SpanRef<'_, S>>::new();
+        // 🍁 Indent is just in case I later decide to start indenting based on how far the function call is nested:
         let indent = "  ".to_string();
+        // 🍁 path_header is the path of function calls.
         let mut path_header = Builder::default();
+        // 🚦 Nothing has been added to the message yet.
+
+        // 🍁 Now, add the path of function calls to the path header variable we just defined, if it exists.
+        // It might not exist, for instance, if the message is from main:
         if ctx.event_scope(event).is_some() {
             spans = ctx
                 .event_scope(event)
@@ -132,23 +135,17 @@ where
             }
         };
 
-        // going to indent by span, perhaps that will be more readable.
-        let mut file_path = self.path.clone();
-        if let Some(file_name) = fields.get("path") {
-            file_path.push(file_name.as_str().unwrap())
-        } else {
-            if (current_span.is_none()) {
-                panic!("Tried to log something. Not within a span, and did not specifiy a 'path'");
-            }
-            file_path.push(current_span.unwrap().name());
-        }
+        // 🍎 Now it's time to start actually putting the message together into the "message" string builder variable:
         let mut message = Builder::default();
-        let now = Local::now().with_timezone(&Eastern);
+        // 🍎 First thing to add is the time. It's eastern right now, I should change that:
+        let now = Local::now().with_timezone(&self.time_zone);
         message.append(format!("{}\n", now.format("%Y-%m-%d %H:%M:%S")));
-        message.append(path_header.string().unwrap());
-        message.append(format!("{}", indent));
 
-        message.append("\n");
+        // 🏵 If there is a span or function path
+        if path_header.len() != 0 {
+            message.append(path_header.string().unwrap());
+            message.append("\n");
+        }
         if (current_span.is_some()) {
             message.append(format!(
                 "{}{}: \n",
@@ -169,6 +166,25 @@ where
             "level": format!("{:?}", event.metadata().level()),
             "fields": fields,
         });
+
+        // 🩸 if "path" was specified in the message, append that to the original path given when the logger was initialized:
+        let mut file_path = self.path.clone();
+        if let Some(file_name) = fields.get("path") {
+            file_path.push(file_name.as_str().unwrap())
+        } else {
+            // 🩸 Otherwise, if no path was given, see if there is a function name under #[instrument] we can name the log file after:
+            if (current_span.is_none()) {
+                // 🩸 And if neither a path was given, and we aren't in a span we can name the file after... we should tell the user.
+                // 🩸🩸🩸
+                panic!("Tried to log something. Not within a span, and did not specifiy a 'path'");
+            }
+            // 🩸 If span wasn't none, go ahead and name the log file after it:
+            file_path.push(current_span.unwrap().name());
+        }
+        // 🩸 finally... add .log to the end of the file name:
+        file_path.push(".log");
+
+        // 🌈 Now... create the rotating logger and go ahead and write the message to the path we figured out:
         let mut log = FileRotate::new(
             file_path,
             AppendTimestamp::default(FileLimit::MaxFiles(2)),
@@ -177,8 +193,9 @@ where
             #[cfg(unix)]
             None,
         );
+
+        // 🌈 There has to be an underscore here, because it returns a value and we are acknowledging we don't wish to use it:
         let _ = write!(log, "{}", message.string().unwrap());
-        //println!("{}{}", serde_json::to_string_pretty(&output).unwrap());
     }
 }
 impl CustomLayer {
