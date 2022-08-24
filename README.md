@@ -1,28 +1,27 @@
-# Docs
-### Integrates Tracing and File-Rotate Crates
-### Very preliminary.
-Creates a thread local tracing subscriber
- that keeps rotating logs
- via standard tracing crate functions and macros.
- This particular example has project_root/logs/ as the root path.
- The name of the log file will either be the name of 
- the span, or the name of "path" if specified.
- Pretty simple, not perfect. Anyone is welcome to improve on this.
+<!-- cargo-rdme start -->
 
-## Example
+This crate is for easily creating rotating logs using the tracing crate.
+I plan on using it for every project, so it will improve. 
+Already it's better than solutions most other languages might have, I think.
+It works. But it's still very preliminary.
+# Examples
 ```rust
+// prelude includes everything you need, including time zones:
 use tracing_storage_logger::prelude::*;
 
 fn main() {
     // It's going to complain this is an unused variable. That's fine. Use an "_" underscore if you wish:
     let logger = Logger::new(
-        PathBuf::from(r"logs"), 
+        // Root path for all logs would be [project_root]/logs,in this case:
+        PathBuf::from(r"logs"),
+        // Size of each file before rotating and adding a date:
         ContentLimit::Bytes(1024),
+        // max number of files to archive for each file name:
         4,
         chrono_tz::US::Eastern
     );
     info!(message = "🍺🍺🍺 Cheers!", path = "general");
-    info!(message = "🌈🌈🌈 Peace and beauty", path = "general");//
+    info!(message = "🌈🌈🌈 Peace and beauty", path = "general");
     function_a();
 }
 
@@ -48,3 +47,5 @@ fn function_c(some_argument: &str){
     error!("Exiting function c");
 }
 ```
+
+<!-- cargo-rdme end -->
