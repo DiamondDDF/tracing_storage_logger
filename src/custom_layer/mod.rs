@@ -22,8 +22,9 @@ use visitor::*;
 // cutom layer needs to be passed as an empty struct, I want to be able to have a stack of spans.
 pub struct CustomLayer {
     pub path: PathBuf,
-    pub limit: ContentLimit,
-    pub time_zone: Tz
+    pub file_size_limit: ContentLimit,
+    pub max_files: usize,
+    pub time_zone: Tz,
 }
 //     pub file_logger: FileRotate<T>
 // }
@@ -188,7 +189,7 @@ where
         let mut log = FileRotate::new(
             file_path,
             AppendTimestamp::default(FileLimit::MaxFiles(2)),
-            self.limit.clone(),
+            self.file_size_limit.clone(),
             Compression::None,
             #[cfg(unix)]
             None,

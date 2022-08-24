@@ -1,17 +1,15 @@
-use std::{path::PathBuf};
-
-use tracing::{instrument, info, warn, error};
-
 mod logger;
 mod custom_layer;
 //use file_rotate::ContentLimit;
 use tracing_storage_logger::prelude::*;
 
 fn main() {
+    // It's going to complain this is an unused variable. That's fine. Use an "_" underscore if you wish:
     let logger = Logger::new(
         PathBuf::from(r"logs"), 
         ContentLimit::Bytes(1024),
-        US::Eastern
+        4,
+        chrono_tz::US::Eastern
     );
     info!(message = "🍺🍺🍺 Cheers!", path = "general");
     info!(message = "🌈🌈🌈 Peace and beauty", path = "general");//tracing_subscriber::registry().with(CustomLayer).init();
