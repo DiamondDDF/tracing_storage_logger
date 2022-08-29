@@ -113,7 +113,7 @@ where
 
         // Record the event. What will we do with this data later? I thought I was just about to record it?
         event.record(&mut visitor);
-
+        
         // 🍁 Some preliminary definitions of things I'm going to add to the message:
         let mut current_span: Option<&SpanRef<'_, S>> = None;
         let mut spans = Vec::<SpanRef<'_, S>>::new();
@@ -135,40 +135,6 @@ where
                 path_header.append(format!("{}() => ", name.name()));
             }
         };
-
-        // 🍎 Now it's time to start actually putting the message together into the "message" string builder variable:
-        let mut message = String::new();//Builder::default();
-        // 🍎 First thing to add is the time. It's eastern right now, I should change that:
-        let now = Local::now().with_timezone(&self.time_zone);
-        message.push_str(&format!("{}\n", now.format("%Y-%m-%d %H:%M:%S")));
-
-        // 🏵 If there is a span or function path
-        if path_header.len() != 0 {
-            message.push_str(&path_header.string().unwrap());
-            message.push_str(&"\n");
-        }
-        if (current_span.is_some()) {
-            message.push_str(&format!(
-                "{}{}: \n",
-                indent,
-                current_span.unwrap().metadata().level()
-            ));
-        } else {
-            message.push_str(&format!("{}{}: \n", indent, "INFO:".to_string()));
-        }
-        for (name, value) in &fields {
-            if name == "path" { continue; }
-            message.push_str(&format!("{}  {}: {}\n", indent, name, value));
-        }
-        message.push_str("\n");
-
-        let output = serde_json::json!({
-            "target": event.metadata().target(),
-            "name": event.metadata().name(),
-            "level": format!("{:?}", event.metadata().level()),
-            "fields": fields,
-        });
-
         // 🩸 if "path" was specified in the message, append that to the original path given when the logger was initialized:
         let mut file_path = self.path.clone();
         if let Some(file_name) = fields.get("path") {
@@ -181,9 +147,8 @@ where
         }
         // 🩸 finally... add .log to the end of the file name:
         file_path.push(".log");
-
-        // 🌈 Now... create the rotating logger and go ahead and write the message to the path we figured out:
-        let mut log = FileRotate::new(
+         // 🌈 Now... create the rotating logger, each part of the message will be written directly:
+         let mut log = FileRotate::new(
             file_path,
             AppendTimestamp::default(FileLimit::MaxFiles(2)),
             self.file_size_limit.clone(),
@@ -191,9 +156,41 @@ where
             #[cfg(unix)]
             None,
         );
+        // 🍎 First thing to add is the time. It's eastern right now, I should change that:
+        let now = Local::now().with_timezone(&self.time_zone);
+        let _ = write!(log, "{}\n", now.format("%Y-%m-%d %H:%M:%S"));
 
-        // 🌈 There has to be an underscore here, because it returns a value and we are acknowledging we don't wish to use it:
-        let _ = write!(log, "{}", message);
+        // 🏵 If there is a span or function path
+        if path_header.len() != 0 {
+            let _ = write!(log, "{}\n", &path_header.string().unwrap());
+        }
+        if (current_span.is_some()) {
+            let _ = write!(
+                log, 
+                "{}{}: \n",
+                indent,
+                current_span.unwrap().metadata().level()
+            );
+        } else {
+           let _ = write!(log, "{}{}: \n", indent, "INFO:".to_string());
+        }
+        for (name, value) in &fields {
+            if name == "path" { continue; }
+            let _ =write!(log,"{}  {}: {}\n", indent, name, value);
+        }
+        let _ =write!(log, "\n");
+
+        let output = serde_json::json!({
+            "target": event.metadata().target(),
+            "name": event.metadata().name(),
+            "level": format!("{:?}", event.metadata().level()),
+            "fields": fields,
+        });
+
+        
+
+       
+
     }
 }
 impl CustomLayer {
