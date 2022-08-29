@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub use tracing::{debug_span, error, info, info_span, instrument, warn, Subscriber};
 use tracing_subscriber::{fmt::Layer, prelude::*};
 
+#[derive(Debug)]
 pub struct Logger;
 
 /// This is the main struct for the end user.
