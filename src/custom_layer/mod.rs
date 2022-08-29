@@ -193,7 +193,7 @@ where
         );
 
         // 🌈 There has to be an underscore here, because it returns a value and we are acknowledging we don't wish to use it:
-        let _ = write!(log, "{:?}", message);
+        let _ = write!(log, "{}", message);
     }
 }
 impl CustomLayer {
