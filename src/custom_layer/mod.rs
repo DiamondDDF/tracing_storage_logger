@@ -157,7 +157,8 @@ where
             message.append(format!("{}{}: \n", indent, "INFO:".to_string()));
         }
         for (name, value) in &fields {
-            message.append(format!("{}  {}: {}\n", indent, name, value));
+            if name == "path" { continue; }
+            message.append(format!("{}  {:?}: {:?}\n", indent, name, value));
         }
         message.append("\n");
 
