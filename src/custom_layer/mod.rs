@@ -172,13 +172,9 @@ where
         let mut file_path = self.path.clone();
         if let Some(file_name) = fields.get("path") {
             file_path.push(file_name.as_str().unwrap())
+        } else if current_span.is_none() {
+            file_path.push("catch_all");
         } else {
-            // 🩸 Otherwise, if no path was given, see if there is a function name under #[instrument] we can name the log file after:
-            if (current_span.is_none()) {
-                // 🩸 And if neither a path was given, and we aren't in a span we can name the file after... we should tell the user.
-                // 🩸🩸🩸
-                panic!("Tried to log something. Not within a span, and did not specifiy a 'path'");
-            }
             // 🩸 If span wasn't none, go ahead and name the log file after it:
             file_path.push(current_span.unwrap().name());
         }
