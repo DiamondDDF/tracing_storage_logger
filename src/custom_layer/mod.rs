@@ -137,30 +137,30 @@ where
         };
 
         // 🍎 Now it's time to start actually putting the message together into the "message" string builder variable:
-        let mut message = Builder::default();
+        let mut message = String::new();//Builder::default();
         // 🍎 First thing to add is the time. It's eastern right now, I should change that:
         let now = Local::now().with_timezone(&self.time_zone);
-        message.append(format!("{}\n", now.format("%Y-%m-%d %H:%M:%S")));
+        message.push_str(&format!("{}\n", now.format("%Y-%m-%d %H:%M:%S")));
 
         // 🏵 If there is a span or function path
         if path_header.len() != 0 {
-            message.append(path_header.string().unwrap());
-            message.append("\n");
+            message.push_str(&path_header.string().unwrap());
+            message.push_str(&"\n");
         }
         if (current_span.is_some()) {
-            message.append(format!(
+            message.push_str(&format!(
                 "{}{}: \n",
                 indent,
                 current_span.unwrap().metadata().level()
             ));
         } else {
-            message.append(format!("{}{}: \n", indent, "INFO:".to_string()));
+            message.push_str(&format!("{}{}: \n", indent, "INFO:".to_string()));
         }
         for (name, value) in &fields {
             if name == "path" { continue; }
-            message.append(format!("{}  {:?}: {:?}\n", indent, name, value));
+            message.push_str(&format!("{}  {}: {}\n", indent, name, value));
         }
-        message.append("\n");
+        message.push_str("\n");
 
         let output = serde_json::json!({
             "target": event.metadata().target(),
@@ -193,7 +193,7 @@ where
         );
 
         // 🌈 There has to be an underscore here, because it returns a value and we are acknowledging we don't wish to use it:
-        let _ = write!(log, "{}", message.string().unwrap());
+        let _ = write!(log, "{}", message);
     }
 }
 impl CustomLayer {
