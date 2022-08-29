@@ -98,7 +98,7 @@ where
 
         // And add to using our old friend the visitor!
         let mut visitor = JsonVisitor(json_data);
-        //values.record(&mut visitor);
+        values.record(&mut visitor);
     }
 
     fn on_event(&self, event: &tracing::Event<'_>, ctx: tracing_subscriber::layer::Context<'_, S>) {
