@@ -45,7 +45,7 @@
 //!     error!("Exiting function c");
 //! }
 //! ```
-
+mod write_json;
 pub mod logger;
 pub mod custom_layer;
 pub mod prelude{

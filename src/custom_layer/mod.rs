@@ -14,6 +14,8 @@ use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::registry::{Scope, SpanRef};
 use tracing_subscriber::{registry::Extensions, Layer};
 use visitor::*;
+use crate::write_json::write_json;
+use serde_json::*;
 
 // need a way to set the root path. A const doesn't work because I want to reuse this crate.
 // I could store the path in the logger, but how do I retrieve it?
@@ -118,7 +120,8 @@ where
         let mut current_span: Option<&SpanRef<'_, S>> = None;
         let mut spans = Vec::<SpanRef<'_, S>>::new();
         // 🍁 Indent is just in case I later decide to start indenting based on how far the function call is nested:
-        let indent = "  ".to_string();
+        let tab = "  ".to_string();
+        let mut indent = tab.clone();
         // 🍁 path_header is the path of function calls.
         let mut path_header = Builder::default();
         // 🚦 Nothing has been added to the message yet.
@@ -158,13 +161,13 @@ where
         );
         // 🍎 First thing to add is the time. It's eastern right now, I should change that:
         let now = Local::now().with_timezone(&self.time_zone);
-        let _ = write!(log, "{}\n", now.format("%Y-%m-%d %H:%M:%S"));
+        let _ = write!(log, "{}\n", now.format("%r %v"));
 
         // 🏵 If there is a span or function path
         if path_header.len() != 0 {
             let _ = write!(log, "{}\n", &path_header.string().unwrap());
         }
-        if (current_span.is_some()) {
+        if current_span.is_some() {
             let _ = write!(
                 log, 
                 "{}{}: \n",
@@ -176,7 +179,29 @@ where
         }
         for (name, value) in &fields {
             if name == "path" { continue; }
-            let _ =write!(log,"{}  {}: {}\n", indent, name, value);
+            indent.push_str(&tab);
+            writeln!(log, "{indent}[{name}]");
+            indent.push_str(&tab);
+            let mut parse_me = value.to_string();
+            let mut parse_me = parse_me.replace("\\", "");
+
+            if parse_me.starts_with("\"") {
+                parse_me = parse_me[1..].to_string();
+            }
+            if parse_me.ends_with("\"") {
+                parse_me = parse_me[..parse_me.len()-1].to_string();
+            }
+
+            let son = serde_json::from_str::<Value>(&parse_me);
+            match son {
+                Ok(value) => {            
+                    write_json(&mut log, value.clone(), &indent);
+                },
+                Err(_) => {
+                    let value = serde_json::Value::String(parse_me);
+                    writeln!(&mut log, "{}{}", indent, value.to_string());
+                },
+            }           
         }
         let _ =write!(log, "\n");
 
@@ -196,3 +221,4 @@ where
 impl CustomLayer {
     pub fn get_span_path() {}
 }
+
